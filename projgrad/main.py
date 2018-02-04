@@ -37,17 +37,17 @@ class OptimizeResult(dict):
     Parameters
     ----------
     x : ndarray
-        The solution of the optimization.
+        the solution of the optimization.
     success : bool
-        Whether or not the optimizer exited successfully.
+        whether or not the optimizer exited successfully.
     status : int
-        Termination status of the optimizer. Its value depends on the
-        underlying solver. Refer to `message` for details.
+        termination status of the optimizer. its value depends on the
+        underlying solver. refer to `message` for details.
     message : str
-        Description of the cause of the termination.
+        description of the cause of the termination.
     fun, jac, hess, hess_inv : ndarray
-        Values of objective function, Jacobian, Hessian or its inverse (if
-        available). The Hessians may be approximations, see the documentation
+        values of objective function, jacobian, hessian or its inverse (if
+        available). the hessians may be approximations, see the documentation
         of the function in question.
     nfev, njev, nhev : int
         Number of evaluations of the objective functions and of its
@@ -106,7 +106,13 @@ def minimize(fun, x0, args=(),
 
     output
     ------
-    optimal solution
+    Optimal solution as `OptimizeResult` object. Parameters include 
+
+    x : ndarray
+        The solution of the optimization.
+    fun : ndarray
+        value of objective function
+
     """
 
     if mask is not None:
