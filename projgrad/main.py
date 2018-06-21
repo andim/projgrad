@@ -103,6 +103,7 @@ def minimize(fun, x0, args=(),
     algo: fast or normal algorithm
     disp: print status information during the run
     mask: Boolean array with directions along which not to optimize
+    callback: callback function called as callback(f, p)
 
     output
     ------
@@ -133,7 +134,7 @@ def minimize(fun, x0, args=(),
     # counting variable for number of iterations
     k = 0
     # lower bound for the cost function
-    low = 0.0
+    low = -np.inf
 
     # setup for accelerated algorithm
     if algo == 'fast':
@@ -155,14 +156,17 @@ def minimize(fun, x0, args=(),
         # reduce s by some factor as optimal s might become smaller during
         # the course of optimization
         s /= 3.0
+    else:
+        f, grad = mfun(p, *args)
 
     while k < maxiters:
         k += 1
-        f, grad = mfun(p, *args)
 
         # update lower bound on cost function
         # initialize at beginning (k=1) and then every nboundupdateth iteration
         if (k % nboundupdate == 0) or (k == 1):
+            if algo =='fast':
+                f, grad = mfun(p, *args)
             if mask is not None:
                 i = np.argmin(grad[~mask])
                 low = max((low, f - np.sum(p * grad) + grad[~mask][i]))
@@ -173,8 +177,8 @@ def minimize(fun, x0, args=(),
             if callback:
                 callback(f, p)
             if disp:
-                print('%g: f %e, gap %e, relgap %e' % (k, f, gap, gap/low if low != 0 else np.inf))
-            if ((low != 0 and gap/low < reltol) or gap < abstol):
+                print('%g: f %e, gap %e, relgap %e' % (k, f, gap, gap/low if low > 0 else np.inf))
+            if ((low > 0 and gap/low < reltol) or gap < abstol):
                 if disp:
                     print('stopping criterion reached')
                 break
@@ -184,24 +188,20 @@ def minimize(fun, x0, args=(),
             p, pold = mproject(y - s * grad), p
             y = p + k/(k+3.0) * (p - pold)
         else:
-            # generate feasible direction by projection
-            s = 0.1
-            d = mproject(p - s * grad) - p
-            # Backtracking line search
-            deriv = np.dot(grad.T, d)
-            alpha = 0.1
-            # in (0, 0.5)
-            p1 = 0.2
-            # in (0, 1)
-            p2 = 0.25
-            fnew, grad = mfun(p + alpha * d, *args)
-            while fnew > f + p1*alpha*deriv:
-                alpha *= p2
-                fnew, grad = mfun(p + alpha * d, *args)
-            p += alpha * d
+            # see e.g section 4.2 in http://www.web.stanford.edu/~boyd/papers/pdf/prox_algs.pdf
+            s = 1.0 / np.linalg.norm(grad)
+            z = mproject(p - s * grad)
+            fnew, gradnew = mfun(z, *args)
+            while fnew > f + np.dot(z - p, grad.T) + \
+                    0.5 * np.linalg.norm(z - p)**2 / s:
+                s *= 0.5
+                z = mproject(p - s * grad)
+                fnew, gradnew = mfun(z, *args)
+            p = z
+            f, grad = fnew, gradnew
     else:
         print('warning: maxiters reached before convergence')
     if disp:
-        print('cost %e, low %e, gap %e, relgap %e' % (f, low, gap, gap/low if low != 0 else np.inf))
+        print('cost %e, low %e, gap %e' % (f, low, gap))
 
     return OptimizeResult(x=p, fun=f, nit=k, success=True)
